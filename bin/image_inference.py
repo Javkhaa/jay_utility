@@ -1,38 +1,11 @@
 import glob
 import logging
 import os
-import shutil
-from ultralytics import YOLO
-from PIL import Image
 import click
+from utility.image_prediction import get_initial_prediction
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-
-def get_initial_prediction(images, model_path, out_dir, conf=0.5):
-    os.makedirs(os.path.join(out_dir, "obj_train_data"), exist_ok=True)
-    obj_inference_dir = os.path.join(out_dir, "obj_train_data")
-    model = YOLO(model_path)
-    # Run batched inference on a list of images
-    results = model.predict(images, conf=conf)  # return a list of Results objects
-    # Process results list
-    for img_file, result in zip(images, results):
-        # Copy the image file to the obj_train_data directory
-        shutil.copy(img_file, obj_inference_dir)
-        basename = os.path.basename(img_file)
-        img_obj = Image.open(img_file)
-        width, height = img_obj.width, img_obj.height
-        with open(
-            os.path.join(obj_inference_dir, f"{basename.removesuffix('.png')}.txt"), "w"
-        ) as fp:
-            for rect in result.boxes.xywh:
-                xcenter, ycenter, xwidth, ywidth = rect.tolist()
-                rel_xcenter = xcenter / width
-                rel_ycenter = ycenter / height
-                rel_width = xwidth / width
-                rel_height = ywidth / height
-                fp.write(f"0 {rel_xcenter} {rel_ycenter} {rel_width} {rel_height}\n")
 
 
 @click.command()
@@ -52,6 +25,10 @@ def get_initial_prediction(images, model_path, out_dir, conf=0.5):
     help="Minimum confidence score for detections to be kept.",
 )
 def create_cvat_importable_annotations(image_dir, out_dir, model_path, conf=0.5):
+    """This CLI runs YOLO inference on images inside the image_dir and output result into out_dir.
+    It will create folder structure compatible with CVAT. You can export this output dir into CVAT
+    so initial prediction will be set.
+    """
     os.makedirs(out_dir, exist_ok=True)
     # Add base files
     with open(os.path.join(out_dir, "obj.data"), "w") as fp:
