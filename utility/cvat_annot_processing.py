@@ -12,16 +12,20 @@ logger = logging.getLogger(__name__)
 
 
 def mv_annot_img_and_label(
-    prefix: str, img_file: str, label_file: str, dest_img_dir: str, dest_label_dir: str
+    prefix: str,
+    img_file: str,
+    label_file: str,
+    dest_img_dir: str,
+    dest_label_dir: str,
 ) -> None:
-    """Move image and label file
+    """Move image and label files to target directories.
 
     Args:
-        prefix (str):
-        img_file (str):
-        label_file (str):
-        dest_img_dir (str):
-        dest_label_dir (str):
+        prefix (str): Prefix to apply to the destination file names.
+        img_file (str): Path to the source image file.
+        label_file (str): Path to the source label file.
+        dest_img_dir (str): Directory to copy the image into.
+        dest_label_dir (str): Directory to copy the label into.
     """
     new_label_file = os.path.basename(label_file).replace("frame", prefix)
     new_img_file = os.path.basename(img_file).replace("frame", prefix)
@@ -30,10 +34,10 @@ def mv_annot_img_and_label(
 
 
 def cleanup_no_label_img(basedir: str) -> None:
-    """Remove frame with no object in it
+    """Remove frames that contain no annotation.
 
     Args:
-        basedir (str):
+        basedir (str): Directory containing frame image and label files.
     """
     for label_file in sorted(glob.glob(os.path.join(basedir, "frame_*.txt"))):
         img_file = label_file.replace(".txt", ".PNG")
@@ -55,8 +59,20 @@ class CVATAnnot:
     max_image_count: int = -1  # -1 for all image
 
     def __init__(
-        self, video_name, annot_dir, downsample_percent=1, max_image_count=None
-    ):
+        self,
+        video_name: str,
+        annot_dir: str,
+        downsample_percent: float = 1,
+        max_image_count: int | None = None,
+    ) -> None:
+        """Initialize CVAT annotation handler.
+
+        Args:
+            video_name (str): Name of the source video.
+            annot_dir (str): Directory containing annotation files.
+            downsample_percent (float, optional): Portion of images to keep. Defaults to 1.
+            max_image_count (int | None, optional): Maximum number of images to output. Defaults to None.
+        """
         self.video_name = video_name
         self.annot_dir = annot_dir
         total_img_cnt = len(os.listdir(annot_dir)) // 2
@@ -67,10 +83,10 @@ class CVATAnnot:
             self.downsample_percent = downsample_percent
 
     def output_fltrd_data(self, outdir: str) -> None:
-        """Output filtered data
+        """Output filtered annotation images and labels.
 
         Args:
-            outdir (str):
+            outdir (str): Root directory where train/ folders will be created.
         """
         dest_img_dir = os.path.join(outdir, "train/images/shrimp/")
         dest_label_dir = os.path.join(outdir, "train/labels/shrimp/")

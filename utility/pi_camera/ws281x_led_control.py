@@ -97,6 +97,14 @@ def strobe_effect(strip, delay_time, led_array=None):
 
 
 def parse_led_config(led_config: str) -> list:
+    """Parse LED configuration string into index-color pairs.
+
+    Args:
+        led_config (str): Configuration string (e.g., "0-5:255:0:0").
+
+    Returns:
+        list: A list of [index, Color] entries.
+    """
     led_config_list = led_config.split(",")
     idx_and_color = []
     for elem in led_config_list:

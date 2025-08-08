@@ -13,10 +13,10 @@ def sample_video(
     """Sample input video and generate images from it.
 
     Args:
-        video_file (str):
-        output_img_dir (str):
-        img_number (int, optional): Number of images to create. Defaults to -1 for all frames.
-        sampling_level (int, optional): How frequently sample the video. Defaults to 10.
+        video_file (str): Path to the source video file.
+        output_img_dir (str): Directory where the sampled frames will be saved.
+        img_number (int, optional): Number of images to create. Defaults to ``-1`` for all frames.
+        crop (list[int] | None, optional): ``[x, y, width, height]`` crop region. Defaults to ``None``.
     """
     basename = os.path.basename(video_file).rsplit(".", 1)[0]
     idx = 0
@@ -51,7 +51,13 @@ def sample_video(
     cap.release()
 
 
-def play_video(video_input, annotation):
+def play_video(video_input: str, annotation: str) -> None:
+    """Play a video and overlay bounding box annotations.
+
+    Args:
+        video_input (str): Path to the input video file.
+        annotation (str): Path to the annotation file.
+    """
     print(f"Showing image annotation {annotation}")
     annotation_df = pd.read_csv(annotation, sep="\t", header=None, dtype=float)
     cap = cv.VideoCapture(video_input)
