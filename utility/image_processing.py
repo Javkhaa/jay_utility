@@ -142,14 +142,14 @@ def show_img_with_bounding_box(
 
     rect_patch_list = []
     for _, row in bbox_coord_df.iterrows():
-        rel_xmin, rel_xmax, rel_ymin, rel_ymax = (
+        rel_xmin, rel_ymin, rel_xmax, rel_ymax = (
             row[1],
             row[2],
             row[3],
             row[4],
         )
         rect_patch_list.append(
-            get_rect_box_yolo(rel_xmin, rel_xmax, rel_ymin, rel_ymax, width, height)
+            get_rect_box(rel_xmin, rel_xmax, rel_ymin, rel_ymax, width, height)
         )
 
     _, ax = plt.subplots(figsize=figsize)
