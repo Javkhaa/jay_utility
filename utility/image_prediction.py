@@ -4,6 +4,7 @@ import os
 import shutil
 import tempfile
 from collections import defaultdict
+from typing import Any
 
 import cv2
 import numpy as np
@@ -14,17 +15,17 @@ from ultralytics import YOLO
 import yaml
 
 
-def get_obb_coordinates(bboxes):
-    """
-    Extract oriented bounding box coordinates from model predictions.
+def get_obb_coordinates(
+    bboxes: list[torch.Tensor | np.ndarray],
+) -> list[np.ndarray]:
+    """Extract oriented bounding box coordinates from model predictions.
 
     Args:
-        bboxes: List of bounding box predictions from YOLO model, containing coordinates
-               in the format of [x1,y1, x2,y2, x3,y3, x4,y4]
+        bboxes (list[torch.Tensor | numpy.ndarray]): Bounding box predictions in
+            ``[x1, y1, x2, y2, x3, y3, x4, y4]`` order.
 
     Returns:
-        list: List of numpy arrays containing the coordinates of oriented bounding boxes,
-              where each array has shape (4,2) representing 4 corner points
+        list[numpy.ndarray]: Each element contains four ``(x, y)`` corner points.
     """
     bbox_pos = []
     for bbox in bboxes:
@@ -38,19 +39,19 @@ def get_obb_coordinates(bboxes):
     return bbox_pos
 
 
-def get_bbox_coordinates(bboxes, width, height):
-    """
-    Extract bounding box coordinates from model predictions.
+def get_bbox_coordinates(
+    bboxes: list[torch.Tensor | np.ndarray], width: int, height: int
+) -> list[list[float]]:
+    """Extract normalized bounding box coordinates from model predictions.
 
     Args:
-        bboxes: List of bounding box predictions from YOLO model, containing coordinates
-               in the format of [xcenter, ycenter, xwidth, ywidth]
-        width: Width of the image
-        height: Height of the image
+        bboxes (list[torch.Tensor | numpy.ndarray]): Bounding boxes in
+            ``[xcenter, ycenter, width, height]`` format.
+        width (int): Width of the source image in pixels.
+        height (int): Height of the source image in pixels.
 
     Returns:
-        list: List of numpy arrays containing the coordinates of bounding boxes,
-              where each array has shape (4,2) representing 4 corner points
+        list[list[float]]: ``[x_center, y_center, width, height]`` ratios.
     """
     bbox_pos = []
     for bbox in bboxes:
@@ -63,16 +64,22 @@ def get_bbox_coordinates(bboxes, width, height):
     return bbox_pos
 
 
-def get_result_coordinates(results, use_normalized_coordinates=False, max_frames=-1):
-    """
-    Extract bounding box coordinates from model predictions.
+def get_result_coordinates(
+    results: list,
+    use_normalized_coordinates: bool = False,
+    max_frames: int = -1,
+) -> list[list[np.ndarray]]:
+    """Extract bounding box coordinates from model predictions.
 
     Args:
-        results: List of model predictions from YOLO tracking results
+        results (list): Sequence of YOLO tracking results.
+        use_normalized_coordinates (bool, optional): If ``True`` return normalized
+            coordinates. Defaults to ``False``.
+        max_frames (int, optional): Process at most this many frames. ``-1``
+            means no limit. Defaults to ``-1``.
 
     Returns:
-        list: List of numpy arrays containing the coordinates of bounding boxes,
-              where each array has shape (4,2) representing 4 corner points
+        list[list[numpy.ndarray]]: Bounding boxes for each frame.
     """
     bbox_pos_list = []
     for idx, result in enumerate(results):
@@ -92,8 +99,28 @@ def get_result_coordinates(results, use_normalized_coordinates=False, max_frames
 
 
 def get_initial_prediction(
-    images, model_path, conf=0.5, device="cuda", persist=False, predict=False, use_normalized_coordinates=True
-):
+    images: list[str],
+    model_path: str,
+    conf: float = 0.5,
+    device: str = "cuda",
+    persist: bool = False,
+    predict: bool = False,
+    use_normalized_coordinates: bool = True,
+) -> dict[str, list[list[float]]]:
+    """Run YOLO model on images and return bounding box coordinates.
+
+    Args:
+        images (list[str]): Paths to images for inference.
+        model_path (str): Path to the YOLO model weights.
+        conf (float, optional): Confidence threshold. Defaults to ``0.5``.
+        device (str, optional): Device used for inference. Defaults to ``"cuda"``.
+        persist (bool, optional): Whether to persist tracking state. Defaults to ``False``.
+        predict (bool, optional): If ``True``, run prediction instead of tracking. Defaults to ``False``.
+        use_normalized_coordinates (bool, optional): Return normalized coordinates. Defaults to ``True``.
+
+    Returns:
+        dict[str, list[list[float]]]: Mapping of image path to bounding box coordinates.
+    """
     model = YOLO(model_path)
     # Run batched inference on a list of images
     if predict:
@@ -113,8 +140,26 @@ def get_initial_prediction(
 
 
 def create_cvat_importable_annotations(
-    image_dir, model_path, outdir, conf=0.5, label_name="shrimp", max_images=None
-):
+    image_dir: str,
+    model_path: str,
+    outdir: str,
+    conf: float = 0.5,
+    label_name: str = "shrimp",
+    max_images: int | None = None,
+) -> str:
+    """Create CVAT-importable annotations using a YOLO model.
+
+    Args:
+        image_dir (str): Directory containing source images.
+        model_path (str): Path to the YOLO model weights.
+        outdir (str): Directory where the dataset will be created.
+        conf (float, optional): Confidence threshold. Defaults to ``0.5``.
+        label_name (str, optional): Name of the label class. Defaults to ``"shrimp"``.
+        max_images (int | None, optional): Limit on number of images to process. Defaults to ``None``.
+
+    Returns:
+        str: Path to the generated ZIP file.
+    """
     images = sorted(
         glob.glob(os.path.join(image_dir, "*.png"))
         + glob.glob(os.path.join(image_dir, "*.PNG"))
@@ -175,7 +220,13 @@ def create_cvat_importable_annotations(
     return zip_file_name
 
 
-def show_tracked_video(images, bboxes):
+def show_tracked_video(images: list[str], bboxes: list[list[torch.Tensor]]) -> None:
+    """Display tracked bounding boxes over a sequence of images.
+
+    Args:
+        images (list[str]): Paths to image files.
+        bboxes (list[list[torch.Tensor]]): Bounding boxes for each frame.
+    """
     cv2.startWindowThread()
     tracking_frame = defaultdict(list)
     for idx, frame_bbox in enumerate(bboxes):
@@ -219,14 +270,18 @@ def show_tracked_video(images, bboxes):
     cv2.waitKey(1)
 
 
-def get_object_speeds(results, speed_thresholds):
-    """Receives results dictionary from YOLO model tracking result.
+def get_object_speeds(
+    results: dict[str, Any],
+    speed_thresholds: dict[str, float],
+) -> pd.DataFrame:
+    """Summarize object movement speed from tracking results.
 
     Args:
-        results (_type_):
+        results (dict[str, Any]): Mapping of frame name to YOLO result object.
+        speed_thresholds (dict[str, float]): Thresholds defining ``"slow"`` and ``"fast"``.
 
     Returns:
-        _type_: _description_
+        pandas.DataFrame: Descriptive statistics of object speeds with color codes.
     """
     obj_locations = defaultdict(list)
     obj_frame_locations = []
@@ -254,7 +309,16 @@ def get_object_speeds(results, speed_thresholds):
     return obj_dist_delta_summary
 
 
-def get_speed_color(speed, speed_thresholds):
+def get_speed_color(speed: float, speed_thresholds: dict[str, float]) -> int:
+    """Return a color code representing speed category.
+
+    Args:
+        speed (float): Average movement speed.
+        speed_thresholds (dict[str, float]): Thresholds with keys ``"slow"`` and ``"fast"``.
+
+    Returns:
+        int: Color index indicating movement category.
+    """
     if speed <= speed_thresholds["slow"]:
         return 6  # red not moving much
     elif speed <= speed_thresholds["fast"]:
@@ -266,15 +330,30 @@ def get_speed_color(speed, speed_thresholds):
 
 
 class TemporaryDirectory:
-    def __enter__(self):
+    """Context manager that creates and cleans up a temporary directory."""
+
+    def __enter__(self) -> str:
+        """Create the temporary directory."""
         self.dir = tempfile.mkdtemp()
         return self.dir
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: Any,
+    ) -> None:
+        """Remove the temporary directory."""
         shutil.rmtree(self.dir)
 
 
-def create_video_from_images(frame_folder, output_video_path):
+def create_video_from_images(frame_folder: str, output_video_path: str) -> None:
+    """Create a video from images in a folder.
+
+    Args:
+        frame_folder (str): Directory containing frame images.
+        output_video_path (str): Path to the output video file.
+    """
     frames = [f for f in os.listdir(frame_folder) if f.endswith(".png")]
     frames.sort(
         key=lambda f: int(f.split("_")[-1].split(".")[0])
@@ -297,10 +376,20 @@ def create_video_from_images(frame_folder, output_video_path):
 
 
 def generate_speed_color_coded_video(
-    results: dict,
+    results: dict[str, Any],
     output_video_path: str,
-    speed_thresholds: dict = {"slow": 5, "fast": 10},
-):
+    speed_thresholds: dict[str, float] = {"slow": 5, "fast": 10},
+) -> pd.DataFrame:
+    """Generate a video with objects color-coded by speed.
+
+    Args:
+        results (dict[str, Any]): Mapping of frame file names to YOLO results.
+        output_video_path (str): Destination for the generated video.
+        speed_thresholds (dict[str, float], optional): Speed thresholds for color coding.
+
+    Returns:
+        pandas.DataFrame: Summary statistics of object speeds.
+    """
     obj_dist_delta_summary = get_object_speeds(results, speed_thresholds)
     speed_color = obj_dist_delta_summary["color"].to_dict()
     # Write annotated images into temp directory
@@ -321,11 +410,12 @@ def generate_speed_color_coded_video(
     return obj_dist_delta_summary
 
 
-def get_rectangle_area(coords):
-    """Get the area of a rectangle from the coordinates of the vertices.
-    The coordinates are expected to be in the format of [x1, y1, x2, y2, x3, y3, x4, y4, ...].
+def get_rectangle_area(coords: list[float]) -> float:
+    """Compute the area of a rectangle from vertex coordinates.
+
     Args:
-        coords (list): List of coordinates of the vertices of the rectangle.
+        coords (list[float]): Coordinates formatted as
+            ``[x1, y1, x2, y2, x3, y3, x4, y4, ...]``.
 
     Returns:
         float: Area of the rectangle.
